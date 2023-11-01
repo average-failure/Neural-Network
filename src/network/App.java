@@ -2,40 +2,62 @@ package network;
 
 import java.io.DataInputStream;
 import java.io.IOException;
+import network.core.NeuralNetwork;
+import network.trainer.NetworkTrainer;
+import network.trainer.TrainerParams;
 
-public class App {
+public class App<T> {
 
   private static final int IMAGE_SIZE = 28 * 28;
 
   public static void main(String[] args) throws IOException {
-    final NeuralNetwork<Byte> network = new NeuralNetwork<>(
-      4,
-      new int[] { IMAGE_SIZE, 16, 16, 10 },
-      new Byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 },
+    new App<Byte>().start(new int[] { IMAGE_SIZE, 16, 16, 10 });
+  }
+
+  private void start(int[] layerSizes) throws IOException {
+    final TrainerParams params = new TrainerParams(
+      layerSizes,
       0.05,
       0.075,
       0.1,
-      0.9
+      0.9,
+      32
     );
-
-    final DataPoint<Byte>[] trainingInputs = readData(
+    final DataPoint[] trainingInputs = readData(
       "assets/train-images.idx3-ubyte",
       "assets/train-labels.idx1-ubyte"
     );
-    network.train(trainingInputs, 32, 10);
+    final NetworkTrainer<T> trainer = new NetworkTrainer<>(
+      params,
+      trainingInputs
+    );
 
-    final DataPoint<Byte>[] testingInputs = readData(
+    long startTime = System.currentTimeMillis();
+    trainer.run(3000);
+    long endTime = System.currentTimeMillis();
+    System.out.println("Training time: " + (endTime - startTime) + "ms");
+
+    final DataPoint[] testingInputs = readData(
       "assets/t10k-images.idx3-ubyte",
       "assets/t10k-labels.idx1-ubyte"
     );
-    network.test(testingInputs);
+
+    startTime = System.currentTimeMillis();
+    // final int[] results = trainer.test(testingInputs);
+    final double accuracy = trainer.testAccuracy(testingInputs);
+    endTime = System.currentTimeMillis();
+    System.out.println("Testing time: " + (endTime - startTime) + "ms");
+    // System.out.println("Testing Results: ");
+    // for (int i = 0; i < results.length; i++) {
+    //   System.out.println(i + ": " + results[i]);
+    // }
+    System.out.println("Testing accuracy: " + (accuracy * 100) + "%");
+
+    NeuralNetwork.shutdown();
   }
 
-  @SuppressWarnings("unchecked")
-  private static DataPoint<Byte>[] readData(
-    String imagesPath,
-    String labelsPath
-  ) throws IOException {
+  private static DataPoint[] readData(String imagesPath, String labelsPath)
+    throws IOException {
     final ClassLoader classLoader = App.class.getClassLoader();
     final DataInputStream imageStream = new DataInputStream(
       classLoader.getResourceAsStream(imagesPath)
@@ -54,7 +76,7 @@ public class App {
     labelStream.readInt();
     labelStream.readInt();
 
-    final DataPoint<Byte>[] dataPoints = new DataPoint[numImages];
+    final DataPoint[] dataPoints = new DataPoint[numImages];
     final byte[] imageData = new byte[IMAGE_SIZE];
 
     for (int i = 0; i < numImages; i++) {
@@ -65,7 +87,9 @@ public class App {
       }
 
       final byte label = labelStream.readByte();
-      dataPoints[i] = new DataPoint<>(image, label);
+      final double[] expectedOutputs = new double[10];
+      expectedOutputs[label] = 1;
+      dataPoints[i] = new DataPoint(image, expectedOutputs, label);
     }
 
     imageStream.close();
