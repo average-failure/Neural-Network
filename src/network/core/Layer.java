@@ -1,15 +1,17 @@
 package network.core;
 
 import java.util.Arrays;
-import network.activation.IActivation;
-import network.activation.Sigmoid;
-import network.cost.ICost;
-import network.cost.MeanSquaredError;
+import java.util.Random;
+import network.activation.*;
+import network.cost.*;
 
 public class Layer<T> {
 
+  private static final Random random = new Random();
+
   public static final IActivation ACTIVATION = new Sigmoid();
-  public static final ICost COST = new MeanSquaredError();
+  public static final IActivation OUTPUT_ACTIVATION = new Sigmoid();
+  public static final ICost COST = new CrossEntropyLoss();
 
   private final int numNodesIn;
   private final int numNodesOut;
@@ -41,8 +43,8 @@ public class Layer<T> {
     weightVelocities = new double[weights.length];
     biasVelocities = new double[biases.length];
 
-    Arrays.parallelSetAll(weights, i -> Math.random() * 2 - 1);
-    Arrays.setAll(biases, i -> Math.random() * 2 - 1);
+    Arrays.parallelSetAll(weights, i -> random.nextDouble(-1, 1));
+    Arrays.setAll(biases, i -> random.nextDouble(-1, 1));
   }
 
   private double getWeight(int nodeIn, int nodeOut) {
@@ -60,15 +62,11 @@ public class Layer<T> {
    * @return the output activations from this layer
    */
   public double[] forwardPass(double[] inputs) {
-    // Calculate activations
-    final double[] activations = new double[numNodesOut];
-    for (int nodeOut = 0; nodeOut < numNodesOut; nodeOut++) {
-      double weightedInput = biases[nodeOut];
-      for (int nodeIn = 0; nodeIn < numNodesIn; nodeIn++) {
-        weightedInput += inputs[nodeIn] * getWeight(nodeIn, nodeOut);
-      }
-      activations[nodeOut] = ACTIVATION.function(weightedInput);
-    }
+    // Calculate the weighted inputs
+    final double[] activations = calculateWeightedInputs(inputs);
+
+    // Apply activation function to weighted inputs
+    ACTIVATION.function(activations);
 
     return activations;
   }
@@ -81,19 +79,84 @@ public class Layer<T> {
    * @return the output activations from this layer
    */
   public double[] forwardPass(double[] inputs, LearnData learnData) {
+    // Calculate and store the weighted inputs
+    calculateWeightedInputs(inputs, learnData);
+
+    // Apply activation function to weighted inputs
+    ACTIVATION.function(learnData.activations);
+
+    return learnData.activations;
+  }
+
+  /**
+   * Computes the activations of the nodes
+   * in this layer from the previous layer's nodes.
+   * <p>This method is only meant for the output layer.</p>
+   * @param inputs the inputs from the previous layer
+   * @return the output activations from this layer
+   */
+  public double[] outputPass(double[] inputs) {
+    // Calculate the weighted inputs
+    final double[] activations = calculateWeightedInputs(inputs);
+
+    // Apply activation function to weighted inputs
+    OUTPUT_ACTIVATION.function(activations);
+
+    return activations;
+  }
+
+  /**
+   * Calculates the activations of this layer and stores it in
+   * the given {@link LearnData}.
+   * <p>This method is only meant for the output layer.</p>
+   * @param inputs the inputs from the previous layer
+   * @param learnData the learn data of this layer
+   * @return the output activations from this layer
+   */
+  public double[] outputPass(double[] inputs, LearnData learnData) {
+    // Calculate and store the weighted inputs
+    calculateWeightedInputs(inputs, learnData);
+
+    // Apply activation function to weighted inputs
+    OUTPUT_ACTIVATION.function(learnData.activations);
+
+    return learnData.activations;
+  }
+
+  /**
+   * Calculates the weighted inputs from the previous layer.
+   * @param inputs the inputs from the previous layer
+   * @return the weighted inputs
+   */
+  private double[] calculateWeightedInputs(double[] inputs) {
+    final double[] weightedInputs = new double[numNodesOut];
+    for (int nodeOut = 0; nodeOut < numNodesOut; nodeOut++) {
+      double weightedInput = biases[nodeOut];
+      for (int nodeIn = 0; nodeIn < numNodesIn; nodeIn++) {
+        weightedInput += inputs[nodeIn] * getWeight(nodeIn, nodeOut);
+      }
+      weightedInputs[nodeOut] = weightedInput;
+    }
+    return weightedInputs;
+  }
+
+  /**
+   * Calculates the weighted inputs from the previous layer
+   * and stores it in the given {@link LearnData}.
+   * @param inputs the inputs from the previous layer
+   * @param learnData the learn data of this layer
+   */
+  private void calculateWeightedInputs(double[] inputs, LearnData learnData) {
     learnData.inputs = inputs;
 
-    // Calculate weighted inputs and activations
     for (int nodeOut = 0; nodeOut < numNodesOut; nodeOut++) {
       double weightedInput = biases[nodeOut];
       for (int nodeIn = 0; nodeIn < numNodesIn; nodeIn++) {
         weightedInput += inputs[nodeIn] * getWeight(nodeIn, nodeOut);
       }
       learnData.weightedInputs[nodeOut] = weightedInput;
-      learnData.activations[nodeOut] = ACTIVATION.function(weightedInput);
+      learnData.activations[nodeOut] = weightedInput;
     }
-
-    return learnData.activations;
   }
 
   /**
@@ -138,15 +201,15 @@ public class Layer<T> {
     LearnData learnData,
     double[] expectedOutputs
   ) {
+    final double[] derivatives = OUTPUT_ACTIVATION.derivative(
+      learnData.weightedInputs
+    );
     for (int i = 0; i < learnData.nodeValues.length; i++) {
       final double costDerivative = COST.derivative(
         learnData.activations[i],
         expectedOutputs[i]
       );
-      final double activationDerivative = ACTIVATION.derivative(
-        learnData.weightedInputs[i]
-      );
-      learnData.nodeValues[i] = costDerivative * activationDerivative;
+      learnData.nodeValues[i] = costDerivative * derivatives[i];
     }
   }
 
@@ -162,6 +225,9 @@ public class Layer<T> {
     Layer<T> oldLayer,
     double[] oldNodeValues
   ) {
+    final double[] derivatives = ACTIVATION.derivative(
+      learnData.weightedInputs
+    );
     for (int newNode = 0; newNode < numNodesOut; newNode++) {
       double newNodeValue = 0;
       for (int oldNode = 0; oldNode < oldNodeValues.length; oldNode++) {
@@ -171,8 +237,7 @@ public class Layer<T> {
         );
         newNodeValue += weightedInputDerivative * oldNodeValues[oldNode];
       }
-      newNodeValue *= ACTIVATION.derivative(learnData.weightedInputs[newNode]);
-      learnData.nodeValues[newNode] = newNodeValue;
+      learnData.nodeValues[newNode] = newNodeValue * derivatives[newNode];
     }
   }
 

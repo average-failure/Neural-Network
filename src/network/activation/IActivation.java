@@ -1,7 +1,7 @@
 package network.activation;
 
 public interface IActivation {
-  double function(double weightedInput);
+  void function(double[] weightedInputs);
 
-  double derivative(double weightedInput);
+  double[] derivative(double[] weightedInputs);
 }

@@ -11,6 +11,16 @@ public record TrainerParams(
   double momentum,
   int miniBatchSize
 ) {
+  public TrainerParams(int[] layerSizes) {
+    this(layerSizes, 0.6, 0.075, 0.1, 0.9, 32);
+    System.out.println("Initial learn rate: " + initialLearnRate);
+    System.out.println("Learn rate decay: " + learnRateDecay);
+    System.out.println("Regularisation: " + regularisation);
+    System.out.println("Momentum: " + momentum);
+    System.out.println("Mini batch size: " + miniBatchSize);
+    System.out.println();
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;

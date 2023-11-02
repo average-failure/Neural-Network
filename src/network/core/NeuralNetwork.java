@@ -10,7 +10,7 @@ import network.DataPoint;
 
 public class NeuralNetwork<T> {
 
-  private static final ExecutorService pool = Executors.newFixedThreadPool(16);
+  private static final ExecutorService pool = Executors.newFixedThreadPool(8);
   private static final List<Future<?>> futures = new ArrayList<>();
 
   private final Layer<T>[] layers;
@@ -48,7 +48,11 @@ public class NeuralNetwork<T> {
    * @return the outputs of the network
    */
   public double[] calculateOutputs(double[] inputs) {
-    for (Layer<T> layer : layers) inputs = layer.forwardPass(inputs);
+    final int outputIndex = layers.length - 1;
+    for (int i = 0; i < outputIndex; i++) {
+      inputs = layers[i].forwardPass(inputs);
+    }
+    inputs = layers[outputIndex].outputPass(inputs);
     return inputs;
   }
 
@@ -62,19 +66,24 @@ public class NeuralNetwork<T> {
     // Feed data through network to calculate outputs
     double[] inputsToNextLayer = dataPoint.inputs();
 
-    for (int i = 0; i < layers.length; i++) {
+    for (int i = 0; i < layers.length - 1; i++) {
       inputsToNextLayer =
         layers[i].forwardPass(inputsToNextLayer, learnData.layerData[i]);
     }
 
-    System.out.println(
-      Layer.COST.calculateCost(inputsToNextLayer, dataPoint.expectedOutputs())
-    );
-
-    // Back-propagation
     final int outputIndex = layers.length - 1;
     final Layer<T> outputLayer = layers[outputIndex];
     final Layer.LearnData outputData = learnData.layerData[outputIndex];
+
+    inputsToNextLayer = outputLayer.outputPass(inputsToNextLayer, outputData);
+
+    // final double cost = Layer.COST.calculateCost(
+    //   inputsToNextLayer,
+    //   dataPoint.expectedOutputs()
+    // );
+    // System.out.println(cost);
+
+    // ---------- Back-propagation ----------
 
     // Update output layer gradients
     outputLayer.calculateOutputNodeValues(

@@ -23,8 +23,7 @@ public class MeanSquaredError implements ICost {
    * @param expectedOutput the expected output of the node
    * @return the mean squared error function at the point {@code output}
    */
-  @Override
-  public double function(double output, double expectedOutput) {
+  private double function(double output, double expectedOutput) {
     final double error = output - expectedOutput;
     return error * error;
   }

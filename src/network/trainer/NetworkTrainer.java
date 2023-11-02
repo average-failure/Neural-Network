@@ -44,6 +44,7 @@ public class NetworkTrainer<T> {
 
       if (batchIndex >= batches.length) epochCompleted();
     }
+    System.out.println("Current learn rate: " + currentLearnRate);
   }
 
   private void epochCompleted() {
@@ -55,6 +56,8 @@ public class NetworkTrainer<T> {
   }
 
   public int[] test(DataPoint[] testingData) {
+    shuffleArray(testingData);
+
     final int[] results = new int[testingData[0].expectedOutputs().length];
 
     for (DataPoint testData : testingData) {
@@ -65,6 +68,8 @@ public class NetworkTrainer<T> {
   }
 
   public double testAccuracy(DataPoint[] testingData) {
+    shuffleArray(testingData);
+
     int correct = 0;
 
     for (DataPoint testData : testingData) {
@@ -102,13 +107,13 @@ public class NetworkTrainer<T> {
     return batches;
   }
 
-  private static <D> void shuffleArray(D[] array) {
+  private static void shuffleArray(Object[] array) {
     int elementsRemaining = array.length;
     int randomIndex;
 
     while (elementsRemaining > 1) {
       randomIndex = RANDOM.nextInt(elementsRemaining);
-      final D chosenElement = array[randomIndex];
+      final Object chosenElement = array[randomIndex];
 
       elementsRemaining--;
       array[randomIndex] = array[elementsRemaining];
