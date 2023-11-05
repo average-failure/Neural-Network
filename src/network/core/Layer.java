@@ -1,11 +1,14 @@
 package network.core;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Random;
 import network.activation.*;
 import network.cost.*;
 
-public class Layer<T> {
+public class Layer<T> implements Serializable {
+
+  private static final long serialVersionUID = 75L;
 
   private static final Random random = new Random();
 

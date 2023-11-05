@@ -5,21 +5,26 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.stream.Stream;
+import javax.swing.SwingUtilities;
 import network.core.NeuralNetwork;
+import network.swing.DisplayFrame;
 import network.trainer.NetworkTrainer;
 import network.trainer.TrainerParams;
 
 public class App<T> {
 
-  private static final byte IMAGE_SIDE = 28;
-  private static final int IMAGE_SIZE = IMAGE_SIDE * IMAGE_SIDE;
+  public static final byte IMAGE_SIDE = 28;
+  public static final int IMAGE_SIZE = IMAGE_SIDE * IMAGE_SIDE;
+  public static final boolean DEBUG = false;
+  private static final boolean TRANSFORM = false;
   private static final Random RANDOM = new Random();
 
-  public static void main(String[] args) throws IOException {
-    new App<Byte>().start(new int[] { IMAGE_SIZE, 64, 32, 16, 10 });
+  public static void main(String[] args) {
+    SwingUtilities.invokeLater(DisplayFrame::new);
   }
 
-  private void start(int[] layerSizes) throws IOException {
+  public NetworkTrainer<T> start(int[] layerSizes, int iterations)
+    throws IOException {
     final TrainerParams params = new TrainerParams(layerSizes);
     final DataPoint[] trainingInputs = readData(
       "assets/train-images.idx3-ubyte",
@@ -34,7 +39,7 @@ public class App<T> {
     System.out.println();
 
     long startTime = System.currentTimeMillis();
-    trainer.run(10_000);
+    trainer.run(iterations);
     System.out.println(
       "Training time: " + (System.currentTimeMillis() - startTime) + "ms"
     );
@@ -61,12 +66,9 @@ public class App<T> {
       "Average testing accuracy: " + (accuracy / NUM_TESTS * 100) + "%"
     );
 
-    // final int[] results = trainer.test(testingInputs);
-    // for (int i = 0; i < results.length; i++) {
-    //   System.out.println(i + ": " + results[i]);
-    // }
-
     NeuralNetwork.shutdown();
+
+    return trainer;
   }
 
   private static DataPoint[] readData(String imagesPath, String labelsPath)
@@ -104,14 +106,16 @@ public class App<T> {
         tempImage[j] = innerImage;
       }
 
-      final int xOff = RANDOM.nextInt(-3, 3);
-      final int yOff = RANDOM.nextInt(-3, 3);
-      for (int j = 0; j < tempImage.length; j++) {
-        shiftArray(tempImage[j], xOff);
-      }
-      shiftArray(tempImage, yOff);
+      if (TRANSFORM) {
+        final int xOff = RANDOM.nextInt(-3, 3);
+        final int yOff = RANDOM.nextInt(-3, 3);
+        for (int j = 0; j < tempImage.length; j++) {
+          shiftArray(tempImage[j], xOff);
+        }
+        shiftArray(tempImage, yOff);
 
-      rotateArray(tempImage, RANDOM.nextDouble(-0.1, 0.1));
+        rotateArray(tempImage, RANDOM.nextDouble(-0.1, 0.1));
+      }
 
       final double[] image = flatten(tempImage)
         .mapToDouble(Double.class::cast)
@@ -186,7 +190,7 @@ public class App<T> {
     );
   }
 
-  private static Stream<Object> flatten(Object[] array) {
+  public static Stream<Object> flatten(Object[] array) {
     return Arrays
       .stream(array)
       .flatMap(o -> o instanceof Object[] ? flatten((Object[]) o) : Stream.of(o)

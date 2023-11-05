@@ -1,20 +1,24 @@
 package network.core;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import network.App;
 import network.DataPoint;
 
-public class NeuralNetwork<T> {
+public class NeuralNetwork<T> implements Serializable {
+
+  private static final long serialVersionUID = 54L;
 
   private static final ExecutorService pool = Executors.newFixedThreadPool(8);
   private static final List<Future<?>> futures = new ArrayList<>();
 
   private final Layer<T>[] layers;
-  private LearnData[] batchLearnData;
+  private transient LearnData[] batchLearnData;
   private final double regularisation;
   private final double momentum;
 
@@ -77,11 +81,13 @@ public class NeuralNetwork<T> {
 
     inputsToNextLayer = outputLayer.outputPass(inputsToNextLayer, outputData);
 
-    // final double cost = Layer.COST.calculateCost(
-    //   inputsToNextLayer,
-    //   dataPoint.expectedOutputs()
-    // );
-    // System.out.println(cost);
+    if (App.DEBUG) {
+      final double cost = Layer.COST.calculateCost(
+        inputsToNextLayer,
+        dataPoint.expectedOutputs()
+      );
+      System.out.println(cost);
+    }
 
     // ---------- Back-propagation ----------
 

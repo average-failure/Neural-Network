@@ -1,17 +1,20 @@
 package network.trainer;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Random;
 import network.DataPoint;
 import network.core.NeuralNetwork;
 
-public class NetworkTrainer<T> {
+public class NetworkTrainer<T> implements Serializable {
+
+  private static final long serialVersionUID = 32L;
 
   private static final Random RANDOM = new Random();
 
   private final NeuralNetwork<T> network;
 
-  private final Batch<DataPoint>[] batches;
+  private final transient Batch<DataPoint>[] batches;
   private final double initialLearnRate;
   private double currentLearnRate;
   private final double learnRateDecay;
@@ -35,6 +38,10 @@ public class NetworkTrainer<T> {
     initialLearnRate = params.initialLearnRate();
     currentLearnRate = initialLearnRate;
     learnRateDecay = params.learnRateDecay();
+  }
+
+  public double[] testImage(double[] image) {
+    return network.calculateOutputs(image);
   }
 
   public void run(int iterations) {
